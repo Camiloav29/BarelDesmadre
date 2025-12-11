@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+import sqlite3
 from bar_app.gui.login_window import LoginWindow
 from bar_app.gui.inventory_panel import InventoryPanel
 from bar_app.gui.sales_panel import SalesPanel
@@ -7,30 +8,46 @@ from bar_app.gui.cierre_panel import CierrePanel
 from bar_app.database.database import init_database
 
 class Application(tk.Tk):
-    def __init__(self):
+    def __init__(self, user_role):
         super().__init__()
         self.title("Bar Inventory and Sales")
         self.geometry("800x600")
 
-        # Create a notebook for tabs
+        self.db_conn = sqlite3.connect('bar_app/database/bar_database.db')
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(expand=True, fill='both')
 
-        # Create the panels
-        self.inventory_panel = InventoryPanel(self.notebook)
-        self.sales_panel = SalesPanel(self.notebook, self.inventory_panel) # Pass inventory_panel reference
-        self.cierre_panel = CierrePanel(self.notebook)
+        if user_role == 'admin':
+            self.inventory_panel = InventoryPanel(self.notebook, self.db_conn)
+            self.sales_panel = SalesPanel(self.notebook, self.db_conn, on_sale_confirmed=self.on_sale_confirmed)
+            self.cierre_panel = CierrePanel(self.notebook, self.db_conn)
 
-        # Add panels to the notebook
-        self.notebook.add(self.inventory_panel, text='Inventory')
-        self.notebook.add(self.sales_panel, text='Sales')
-        self.notebook.add(self.cierre_panel, text='Closing')
+            self.notebook.add(self.inventory_panel, text='Inventory')
+            self.notebook.add(self.sales_panel, text='Sales')
+            self.notebook.add(self.cierre_panel, text='Closing')
+        else:
+            self.sales_panel = SalesPanel(self.notebook, self.db_conn, on_sale_confirmed=self.on_sale_confirmed)
+            self.notebook.add(self.sales_panel, text='Sales')
+
+    def on_sale_confirmed(self):
+        """Callback to refresh panels after a sale."""
+        if hasattr(self, 'inventory_panel'):
+            self.inventory_panel.load_products()
+        self.sales_panel.load_product_list()
+
+    def on_closing(self):
+        """Close the database connection and destroy the window."""
+        self.db_conn.close()
+        self.destroy()
 
 if __name__ == "__main__":
-    init_database()  # Initialize the database at startup
+    init_database()
     login_window = LoginWindow()
     login_window.mainloop()
 
-    if login_window.is_login_successful():
-        app = Application()
+    user_role = login_window.get_user_role()
+    if user_role:
+        app = Application(user_role)
         app.mainloop()

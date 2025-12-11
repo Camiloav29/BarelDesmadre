@@ -3,8 +3,9 @@ from tkinter import ttk, messagebox
 from bar_app.logic import cierre
 
 class CierrePanel(ttk.Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, db_conn):
         super().__init__(parent)
+        self.db_conn = db_conn
 
         # --- Report Display ---
         report_frame = ttk.LabelFrame(self, text="Daily Sales Report")
@@ -31,13 +32,15 @@ class CierrePanel(ttk.Frame):
 
         ttk.Button(button_frame, text="Generate/Refresh Report", command=self.generate_report).pack(side="left", padx=5)
 
+        self.generate_report()
+
     def generate_report(self):
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        report_data = cierre.get_daily_sales_report()
+        report_data = cierre.get_daily_sales_report(self.db_conn)
         for row in report_data:
             self.tree.insert("", "end", values=(row[0], row[1], f"{row[2]:,.0f}", row[3]))
 
-        total_revenue = cierre.get_total_revenue()
+        total_revenue = cierre.get_total_revenue(self.db_conn)
         self.total_revenue_label.config(text=f"{total_revenue:,.0f} COP")

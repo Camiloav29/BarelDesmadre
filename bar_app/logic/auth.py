@@ -1,15 +1,19 @@
-import sqlite3
 import hashlib
 
-def verify_user(username, password):
-    """Verifica las credenciales del usuario contra la base de datos."""
-    conn = sqlite3.connect('bar_app/database/bar_database.db')
-    c = conn.cursor()
+def verify_user(db_conn, username, password):
+    """
+    Verifica las credenciales del usuario usando salting y devuelve su rol si son correctas.
+    """
+    c = db_conn.cursor()
 
-    # Hashear la contraseña ingresada para la comparación
-    hashed_password = hashlib.sha256(password.encode('utf-8')).hexdigest()
+    c.execute("SELECT password, salt, role FROM users WHERE username = ?", (username,))
+    result = c.fetchone()
 
-    c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, hashed_password))
-    user = c.fetchone()
-    conn.close()
-    return user is not None
+    if result:
+        stored_password, salt, role = result
+        # Combinar la contraseña ingresada con el salt y hashear
+        hashed_password = hashlib.sha256((password + salt).encode('utf-8')).hexdigest()
+
+        if hashed_password == stored_password:
+            return role  # Login exitoso
+    return None # Usuario no encontrado o contraseña incorrecta

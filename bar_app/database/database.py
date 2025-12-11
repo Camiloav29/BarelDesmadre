@@ -2,6 +2,7 @@
 import sqlite3
 from sqlite3 import Error
 import hashlib
+import os
 
 def create_connection():
     """Crea una conexión a la base de datos SQLite."""
@@ -22,7 +23,9 @@ def create_tables(conn):
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT NOT NULL UNIQUE,
-                password TEXT NOT NULL
+                password TEXT NOT NULL,
+                salt TEXT NOT NULL,
+                role TEXT NOT NULL
             );
         """)
         # Tabla de productos
@@ -50,16 +53,28 @@ def create_tables(conn):
     except Error as e:
         print(e)
 
-def create_default_user(conn):
-    """Crea un usuario por defecto con contraseña hasheada si no existe."""
+def create_default_users(conn):
+    """Crea los usuarios por defecto (admin y cajero) si no existen."""
     try:
         c = conn.cursor()
+
+        # Admin user
         c.execute("SELECT * FROM users WHERE username = 'admin'")
         if not c.fetchone():
             password = 'admin'
-            hashed_password = hashlib.sha256(password.encode('utf-8')).hexdigest()
-            c.execute("INSERT INTO users (username, password) VALUES (?, ?)", ('admin', hashed_password))
-            conn.commit()
+            salt = os.urandom(16).hex()
+            hashed_password = hashlib.sha256((password + salt).encode('utf-8')).hexdigest()
+            c.execute("INSERT INTO users (username, password, salt, role) VALUES (?, ?, ?, ?)", ('admin', hashed_password, salt, 'admin'))
+
+        # Cashier user
+        c.execute("SELECT * FROM users WHERE username = 'cajero'")
+        if not c.fetchone():
+            password = 'cajero'
+            salt = os.urandom(16).hex()
+            hashed_password = hashlib.sha256((password + salt).encode('utf-8')).hexdigest()
+            c.execute("INSERT INTO users (username, password, salt, role) VALUES (?, ?, ?, ?)", ('cajero', hashed_password, salt, 'cashier'))
+
+        conn.commit()
     except Error as e:
         print(e)
 
@@ -68,7 +83,7 @@ def init_database():
     conn = create_connection()
     if conn is not None:
         create_tables(conn)
-        create_default_user(conn)
+        create_default_users(conn)
         conn.close()
     else:
         print("Error! No se pudo crear la conexión a la base de datos.")

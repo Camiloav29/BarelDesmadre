@@ -3,8 +3,9 @@ from tkinter import ttk, messagebox
 from bar_app.logic import inventory
 
 class InventoryPanel(ttk.Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, db_conn):
         super().__init__(parent)
+        self.db_conn = db_conn
 
         # --- Product List ---
         list_frame = ttk.LabelFrame(self, text="Product List")
@@ -58,7 +59,7 @@ class InventoryPanel(ttk.Frame):
     def load_products(self):
         for item in self.tree.get_children():
             self.tree.delete(item)
-        for product in inventory.get_products():
+        for product in inventory.get_products(self.db_conn):
             self.tree.insert("", "end", values=product)
 
     def on_item_select(self, event):
@@ -95,7 +96,7 @@ class InventoryPanel(ttk.Frame):
             messagebox.showerror("Validation Error", "Quantity and Price must be integers.")
             return False
 
-        if not inventory.is_shortcut_unique(shortcut, product_id):
+        if not inventory.is_shortcut_unique(self.db_conn, shortcut, product_id):
             messagebox.showerror("Validation Error", "Shortcut must be unique.")
             return False
 
@@ -107,7 +108,7 @@ class InventoryPanel(ttk.Frame):
             name = self.name_entry.get()
             quantity = int(self.quantity_entry.get())
             price = int(self.price_entry.get())
-            inventory.add_product(name, quantity, price, shortcut)
+            inventory.add_product(self.db_conn, name, quantity, price, shortcut)
             messagebox.showinfo("Success", "Product added successfully.")
             self.load_products()
             self.clear_form()
@@ -125,7 +126,7 @@ class InventoryPanel(ttk.Frame):
             name = self.name_entry.get()
             quantity = int(self.quantity_entry.get())
             price = int(self.price_entry.get())
-            inventory.update_product(product_id, name, quantity, price, shortcut)
+            inventory.update_product(self.db_conn, product_id, name, quantity, price, shortcut)
             messagebox.showinfo("Success", "Product updated successfully.")
             self.load_products()
             self.clear_form()
@@ -138,7 +139,7 @@ class InventoryPanel(ttk.Frame):
 
         if messagebox.askyesno("Confirm", "Are you sure you want to delete this product?"):
             product_id = self.tree.item(selected_item, "values")[0]
-            inventory.delete_product(product_id)
+            inventory.delete_product(self.db_conn, product_id)
             messagebox.showinfo("Success", "Product deleted successfully.")
             self.load_products()
             self.clear_form()

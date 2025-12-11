@@ -3,15 +3,37 @@ from tkinter import ttk, messagebox
 from bar_app.logic import sales, inventory
 
 class SalesPanel(ttk.Frame):
-    def __init__(self, parent, inventory_panel): # inventory_panel added
+    def __init__(self, parent, db_conn, on_sale_confirmed):
         super().__init__(parent)
-
-        self.inventory_panel = inventory_panel # store reference
+        self.db_conn = db_conn
+        self.on_sale_confirmed = on_sale_confirmed
         self.product = None
 
+        # --- Main Layout ---
+        main_frame = ttk.Frame(self)
+        main_frame.pack(fill="both", expand=True)
+        main_frame.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(1, weight=1)
+
+        # --- Product List ---
+        list_frame = ttk.LabelFrame(main_frame, text="Available Products")
+        list_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ns")
+
+        self.tree = ttk.Treeview(list_frame, columns=("Name", "Shortcut"), show="headings")
+        self.tree.heading("Name", text="Name")
+        self.tree.heading("Shortcut", text="Shortcut")
+        self.tree.column("Name", width=150)
+        self.tree.column("Shortcut", width=80)
+        self.tree.pack(fill="y", expand=True)
+
+        self.load_product_list()
+
         # --- Sale Registration Form ---
-        form_frame = ttk.LabelFrame(self, text="Register Sale")
-        form_frame.pack(padx=10, pady=10, fill="x")
+        form_container = ttk.Frame(main_frame)
+        form_container.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
+
+        form_frame = ttk.LabelFrame(form_container, text="Register Sale")
+        form_frame.pack(fill="x")
 
         ttk.Label(form_frame, text="Product Shortcut:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
         self.shortcut_entry = ttk.Entry(form_frame)
@@ -43,11 +65,17 @@ class SalesPanel(ttk.Frame):
         form_frame.columnconfigure(1, weight=1)
 
         # --- Buttons ---
-        button_frame = ttk.Frame(self)
-        button_frame.pack(fill="x", padx=10, pady=10)
+        button_frame = ttk.Frame(form_container)
+        button_frame.pack(fill="x", pady=10)
 
         ttk.Button(button_frame, text="Confirm Sale", command=self.confirm_sale).pack(side="left", padx=5)
         ttk.Button(button_frame, text="Clear", command=self.clear_form).pack(side="right", padx=5)
+
+    def load_product_list(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        for product in inventory.get_products(self.db_conn):
+            self.tree.insert("", "end", values=(product[1], product[4]))
 
     def validate_integer(self, value):
         if value.isdigit() or value == "":
@@ -59,7 +87,7 @@ class SalesPanel(ttk.Frame):
         if not shortcut:
             return
 
-        product = sales.get_product_by_shortcut(shortcut)
+        product = sales.get_product_by_shortcut(self.db_conn, shortcut)
         if product:
             self.product = product
             self.product_name_label.config(text=f"{product[1]} (Stock: {product[2]})")
@@ -115,11 +143,10 @@ class SalesPanel(ttk.Frame):
 
         total = int(self.total_label.cget("text").replace(",", ""))
 
-        sales.record_sale(self.product[0], quantity, total)
+        sales.record_sale(self.db_conn, self.product[0], quantity, total)
         messagebox.showinfo("Success", "Sale recorded successfully.")
 
-        # Actualizar la lista de productos en el panel de inventario
-        self.inventory_panel.load_products()
+        self.on_sale_confirmed()
         self.clear_form()
 
 
