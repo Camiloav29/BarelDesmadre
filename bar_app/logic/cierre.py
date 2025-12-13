@@ -3,7 +3,7 @@ from datetime import date
 
 def get_daily_sales_report(db_conn):
     """
-    Obtiene un reporte de ventas para la fecha actual, agrupando por producto.
+    Obtiene un reporte de ventas para la fecha actual, compatible con el nuevo esquema.
     """
     c = db_conn.cursor()
 
@@ -12,12 +12,13 @@ def get_daily_sales_report(db_conn):
     query = """
     SELECT
         p.name,
-        SUM(s.quantity) as total_quantity_sold,
-        SUM(s.total_price) as total_revenue,
+        SUM(oi.quantity) as total_quantity_sold,
+        SUM(oi.quantity * oi.price_per_unit) as total_revenue,
         p.quantity as remaining_stock
-    FROM sales s
-    JOIN products p ON s.product_id = p.id
-    WHERE DATE(s.sale_time, 'localtime') = ?
+    FROM orders o
+    JOIN order_items oi ON o.id = oi.order_id
+    JOIN products p ON oi.product_id = p.id
+    WHERE DATE(o.order_time, 'localtime') = ?
     GROUP BY p.name
     ORDER BY total_revenue DESC
     """
@@ -28,12 +29,12 @@ def get_daily_sales_report(db_conn):
 
 def get_total_revenue(db_conn):
     """
-    Calcula el total de ingresos de todas las ventas del día actual.
+    Calcula el total de ingresos de todos los pedidos del día actual.
     """
     c = db_conn.cursor()
 
     today = date.today().strftime('%Y-%m-%d')
 
-    c.execute("SELECT SUM(total_price) FROM sales WHERE DATE(sale_time, 'localtime') = ?", (today,))
+    c.execute("SELECT SUM(total_amount) FROM orders WHERE DATE(order_time, 'localtime') = ?", (today,))
     total_revenue = c.fetchone()[0]
     return total_revenue if total_revenue else 0

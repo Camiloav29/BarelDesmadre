@@ -37,3 +37,10 @@ def is_shortcut_unique(db_conn, shortcut, product_id=None):
         c.execute("SELECT id FROM products WHERE shortcut = ?", (shortcut,))
     result = c.fetchone()
     return result is None
+
+def get_product_by_shortcut(db_conn, shortcut):
+    """Busca un producto por su atajo."""
+    c = db_conn.cursor()
+    c.execute("SELECT id, name, quantity, price FROM products WHERE shortcut = ?", (shortcut,))
+    product = c.fetchone()
+    return product
